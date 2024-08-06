@@ -15,6 +15,10 @@ def home():
 def grade():
     return render_template("grade.html")
 
+@app.route("/sched")
+def sched():
+    return render_template("sched.html")
+
 
 
 
