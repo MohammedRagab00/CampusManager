@@ -1,14 +1,13 @@
 import sqlite3
 
-# Connect to the database
+
 conn = sqlite3.connect('database.db')
 print("Connected to database successfully")
 
-# Create a cursor object
 cursor = conn.cursor()
 
 
-# Create new tables if they don't exist
+
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS student(
     std_id INT PRIMARY KEY,
@@ -121,6 +120,16 @@ CREATE TABLE IF NOT EXISTS pre_req(
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS register(
     rid INT PRIMARY KEY,
+    std_id INT,
+    cc VARCHAR(10),
+    FOREIGN KEY (std_id) REFERENCES student(std_id),
+    FOREIGN KEY (cc) REFERENCES course(cc)
+);
+''')
+
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS registerdCourses(
     std_id INT,
     cc VARCHAR(10),
     FOREIGN KEY (std_id) REFERENCES student(std_id),
