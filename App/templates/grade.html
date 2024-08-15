@@ -1,7 +1,77 @@
-{% extends "layout.html" %}
-{% block title %}
-Grade
-{% endblock %}
-{% block content %}
-<h1>Grade Page</h1>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title></title>
+    <body> 
+        <div id="dvContent">
+            <h3>Instructions:</h3>
+            <ul>
+                <li>
+                    <b>In this section, you can see all the courses you registered at AOU and their grades.</b>
+                </li>
+                <li>Select a semester then click on 'Go' to see the final grades for the courses you
+            registered in that semester.</li>
+                <li>If a certain course shows an 'N/A' grade then this means that you cannot see the
+            grade. Please read the Notes next to it to understand the reason.</li>
+            </ul>
+            <hr>
+            <div id="upMain">
+                        <table>
+                            <tbody><tr>
+                                <td>
+                                    <span id="Label12" style="font-weight:bold;">View Final Grades for</span>&nbsp;<select name="ddlSemester" id="ddlSemester">
+        <option value="5_51_x109115802">Second 2023/2024</option>
+        <option selected="selected" value="5_51_x100581554">First 2023/2024</option>
+        
+        </select>
+                                    &nbsp;
+                    <a id="lnkBtnGetGrades" href="javascript:__doPostBack('lnkBtnGetGrades','')" data-ur1313m3t="true">Go</a>
+                                    <br>
+                                    <br>
+                                    <table id="tblGrades">
+        <tbody><tr>
+            <td>
+                                                <table class="NormGrid" cellspacing="0" rules="all" border="1" id="dgStudentGrades" style="width:950px;border-collapse:collapse;">
+                <tbody><tr>
+                    <td>Course Code</td><td>Credits</td><td>Grade </td><td>Sheet Grade(20)</td><td>Mid Term Assessment(30)</td><td>Final Exam(50)</td><td>Notes</td>
+                </tr><tr>
+                    <td>
+                                                                <span id="dgStudentGrades_ctl02_lblCourseCode">MT131</span>
+                                                            </td><td>
+                                                                <span id="dgStudentGrades_ctl02_lblCredits">4</span>
+                                                            </td><td>
+                                                                <span id="dgStudentGrades_ctl02_lblGrade">B+</span>
+                                                            </td><td>
+                                                                <span id="sheet_grade">20</span>
+                                                            </td><td>
+                                                                <span id="mid_grade">2</span>
+                                                            </td><td>
+                                                                <span id="final_grade">37</span>
+                                                            </td><td>
+                                                                <span id="dgStudentGrades_ctl02_lblNotes">--</span>
+                                                            </td>
+            </tbody></table>
+                                            </td>
+        </tr>
+        <tr>
+            <td>
+                                                <span id="Label1">* To view your GPA click here</span>&nbsp;<a onclick="window.open('Legend.aspx');"  href="javascript:__doPostBack('lnkbtnviewLegend','')" data-ur1313m3t="true">here</a>
+                                            </td>
+        </tr>
+        </tbody></table>
+        
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <a href="/")" data-ur1313m3t="true"> Back to home page</a></td>
+                            </tr>
+                        </tbody></table>
+                    </div>
+       </body>
+</html>
