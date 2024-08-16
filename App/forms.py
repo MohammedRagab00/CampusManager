@@ -12,6 +12,16 @@ class RegisterForm(FlaskForm):
             raise ValidationError("Ssn already exists!")
         if len(ssn_to_check.data) != 14:
             raise ValidationError("Ssn must be exactly 14 characters long.")
+        ssn_str = str(ssn_to_check)
+        # if (
+        #     ssn_str[5:7] < "01"
+        #     or ssn_str[5:7] > "31"
+        #     or ssn_str[3:5] < "01"
+        #     or ssn_str[3:5] > "12"
+        #     or ssn_str[1:3] < "00"
+        #     or ssn_str[1:3] > "24"
+        # ):
+        #     raise ValidationError("Invalid Ssn.")
 
     def validate_email_address(self, email_address_to_check):
         email_address = User.query.filter_by(

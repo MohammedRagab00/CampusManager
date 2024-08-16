@@ -24,7 +24,8 @@ def home_page():
 @app.route("/profile")
 @login_required
 def profile_page():
-    return render_template("profile.html")
+    user = current_user
+    return render_template("profile.html", user=user)
 
 
 @app.route("/ed", methods=["GET", "POST"])

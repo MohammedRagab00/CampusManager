@@ -1,6 +1,33 @@
 {% extends 'base.html' %}
 {% block title %} Profile Page {% endblock %}
 {% block content %}
+<div class="container mt-5">
+    <h1>Profile Page</h1>
+    <div class="row">
+        <div class="col-md-6">
+            <h2>User Information</h2>
+            <ul class="list-group" style="color: black;">
+                <li class="list-group-item"><strong>First Name:</strong> {{ user.first_name }}</li>
+                <li class="list-group-item"><strong>Last Name:</strong> {{ user.last_name }}</li>
+                <li class="list-group-item"><strong>Email Address:</strong> {{ user.email_address }}</li>
+                <li class="list-group-item"><strong>SSN:</strong> {{ user.ssn }}</li>
 
-
+                <li class="list-group-item">
+                    <strong>Date Of Birth:</strong>
+                    {% set ssn_str = user.ssn|string %}
+                    {{ ssn_str[5:7] }}/{{ ssn_str[3:5] }}/20{{ ssn_str[1:3] }}
+                </li>
+                <li class="list-group-item"><strong>Major:</strong> {{ user.major }}</li>
+                {% if user.role==0 %}
+                <li class="list-group-item"><strong>Role:</strong> Student</li>
+                {% else %}
+                <li class="list-group-item"><strong>Role:</strong> Professor</li>
+                {% endif %}
+                <li class="list-group-item"><strong>GPA:</strong> {{ user.gpa }}</li>
+                <li class="list-group-item"><strong>Passed Credit Hours:</strong> {{ user.passed_credit_hours }}</li>
+            </ul>
+        </div>
+        <!-- You can add more sections here as needed -->
+    </div>
+</div>
 {% endblock %}
