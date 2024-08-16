@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %} Enroll | Drop Page {% endblock %}
+{% block content %}
+<div class="row" style="margin-top: 20px;margin-left: 20px;">
+    <div class="col-8">
+        <h2>Available section</h2>
+        <p>Click on one of the sections to Enroll</p>
+        <br>
+        <table class="table table-hover table-dark">
+            <thead>
+                <tr>
+                    <!-- Your Columns HERE -->
+                    <th scope="col">Section ID</th>
+                    <th scope="col">Course ID</th>
+                    <th scope="col">Day</th>
+                    <th scope="col">Time</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Place</th>
+                    <th scope="col">Group</th>
+                    <th scope="col">Options</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Your rows inside the table HERE: -->
+                {% for section in sections %}
+                {% include 'includes/items_modals.html' %}
+
+                <tr>
+                    <td>{{ section.id }}</td>
+                    <td>{{ section.course_id }}</td>
+                    <td>{{ section.day }}</td>
+                    <td>{{ section.time }}</td>
+                    <td>{{ section.type }}</td>
+                    <td>{{ section.place }}</td>
+                    <td>{{ section.group }}</td>
+                    <td>
+                        <button class="btn btn-outline btn-success" data-toggle="modal"
+                            data-target="#Modal-EnrollConfirm-{{ section.id }}">Enroll this section</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="col-4">
+
+        <h2>Enrolled Sections</h2>
+        <p>Click on section to drop</p>
+        <br>
+        <div class="row">
+            {% for sec in enrolled_sec %}
+            {% include 'includes/owned_items_modals.html' %}
+
+            <div class="col-md-6">
+                <div style="margin-bottom: 5px" class="card text-center bg-dark">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ sec.section_id }}</h5>
+                        <button type="button" class="btn btn-outline-danger" style="margin-bottom: 5px"
+                            data-toggle="modal" data-target="#Modal-DroppingConfirm-{{ sec.id }}">
+                            Drop this section
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
