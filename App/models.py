@@ -23,15 +23,6 @@ class User(db.Model, UserMixin):
         "Course_registered", backref="student", lazy=True
     )
 
-    # items = db.relation("Item", backref="owned_user", lazy=True)
-
-    # @property
-    # def prettier_budget(self):
-    #     if len(str(self.budget)) >= 4:
-    #         return f"{str(self.budget)[:-3]},{str(self.budget)[-3:]}$"
-    #     else:
-    #         return f"{self.budget}$"
-
     @property
     def password(self):
         return self.password
@@ -149,71 +140,3 @@ class Department(db.Model):
     head_id = db.Column(
         db.Integer(), db.ForeignKey("user.id"), nullable=False, default=0
     )
-
-
-# class Item(db.Model):
-#     id = db.Column(db.Integer(), primary_key=True)
-#     name = db.Column(db.String(length=30), nullable=False, unique=True)
-#     price = db.Column(db.Integer(), nullable=False)
-#     barcode = db.Column(db.String(length=12), nullable=False, unique=True)
-#     description = db.Column(db.String(length=1024), nullable=False, unique=True)
-#     owner = db.Column(db.Integer(), db.ForeignKey("user.id"))
-
-#     def __repr__(self):
-#         return f"Item {self.name}"
-
-#     def buy(self, user):
-#         self.owner = user.id
-#         user.budget -= self.price
-#         db.session.commit()
-
-#     def sell(self, user):
-#         self.owner = None
-#         user.budget += self.price
-#         db.session.commit()
-
-
-"""
-from market import app,db
-app.app_context().push()
-db.create_all()
-from market import Item
-item1 = Item(name="", price = , barcode = '', description = "")
-db.session.add(item1)
-db.session.commit()
-
-Item.query.all()
-
-for item in Item.query.filter_by(price=500):
-    item.name
-
-import os
-os.system('cls')
-
-
-! -------------------------------------------------------------------------------------------------
-
-from App.models import db,User,Courses,Course_prerequisite,Section,Course_registered,Course_grade,Place,Department
-from App import app
-
-app.app_context().push()
-
-db.drop_all()
-db.create_all()
-u1 = User(first_name = 'me', last_name='me',password_hash = '123456', email_address = 'jsc@jsc.com')
-db.session.add(u1)
-db.session.commit()
-User.query.all()
-
-item1 = Item.query.filter_by(price=4400).first()
-item1.owner  # we'll find nothing
-item1.owner = User.query.filter_by(username='jsc').first() # Don't do this (Item only accept id not username)
-db.session.rollback()
-db.session.add(item1)
-db.session.commit()
-item1.owner = User.query.filter_by(username='jsc').first().id
-
-item1 = Item.query.filter_by(price=4400).first()
-item1.owned_user # returns obj
-
-"""

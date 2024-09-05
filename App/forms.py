@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, IntegerField
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
-from App.models import User, Courses, Department, Place, Section
+from App.models import User, Courses, Department, Place, Section, Course_prerequisite
 from flask import flash
 
 
@@ -12,16 +12,14 @@ class RegisterForm(FlaskForm):
             raise ValidationError("Ssn already exists!")
         if len(ssn_to_check.data) != 14:
             raise ValidationError("Ssn must be exactly 14 characters long.")
-        ssn_str = str(ssn_to_check)
-        # if (
-        #     ssn_str[5:7] < "01"
-        #     or ssn_str[5:7] > "31"
-        #     or ssn_str[3:5] < "01"
-        #     or ssn_str[3:5] > "12"
-        #     or ssn_str[1:3] < "00"
-        #     or ssn_str[1:3] > "24"
-        # ):
-        #     raise ValidationError("Invalid Ssn.")
+        if (
+            int(ssn_to_check.data[5:7]) < 1
+            or int(ssn_to_check.data[5:7]) > 31
+            or int(ssn_to_check.data[3:5]) < 1
+            or int(ssn_to_check.data[3:5]) > 12
+            or int(ssn_to_check.data[1:3]) < 0
+        ):
+            raise ValidationError("Invalid Ssn.")
 
     def validate_email_address(self, email_address_to_check):
         email_address = User.query.filter_by(
@@ -189,3 +187,68 @@ class DropSectionForm(FlaskForm):
     submit = SubmitField(
         label="Drop Section!",
     )
+
+
+class EditRoleForm(FlaskForm):
+    submit = SubmitField(
+        label="Save!",
+    )
+
+class DeleteUserForm(FlaskForm):
+    submit = SubmitField(
+        label="Delete!",
+    )
+
+class AddCoursePrerequisiteForm(FlaskForm):
+    def validate_course_id(self, course_id_to_check):
+        course = Courses.query.filter_by(id=course_id_to_check.data).first()
+        if course:
+            pass
+        else:
+            raise ValidationError("Course doesn't exist!")
+
+    def validate_prerequisite_id(self, prerequisite_id_to_check):
+        course = Courses.query.filter_by(id=prerequisite_id_to_check.data).first()
+        if course:
+            pass
+        else:
+            raise ValidationError("Course Prerequisite doesn't exist!")
+
+    def validate_combination(self):
+        course_id = self.course_id.data
+        prerequisite_id = self.prerequisite_id.data
+
+        # Query the database to check if the combination already exists
+        coursePrerequisite = Course_prerequisite.query.filter_by(
+            course_id=course_id, prerequisite_id=prerequisite_id
+        ).first()
+        if coursePrerequisite:
+            flash(
+                "This combination of Course ID, and Course Prerequisite already exists.",
+                category="danger",
+            )
+            return False
+        if course_id == prerequisite_id:
+            flash(
+                "Course ID and Prerequisite ID cannot be the same.", category="danger"
+            )
+            return False
+        return True
+
+    def validate(self, extra_validators=None):
+        """Override the validate method to include custom validation."""
+        if not super(AddCoursePrerequisiteForm, self).validate(extra_validators):
+            return False
+
+        # Call the custom combination validator
+        if not self.validate_combination():
+            return False
+
+        return True
+
+    course_id = StringField(label="Course ID: ", validators=[DataRequired()])
+    prerequisite_id = StringField(
+        label="Course Prerequisite: ", validators=[DataRequired()]
+    )
+
+    submit = SubmitField(label="Add Course Prerequisite")

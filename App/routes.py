@@ -1,6 +1,14 @@
 from App import app, db
 from flask import render_template, redirect, url_for, flash, request
-from App.models import User, Courses, Department, Section, Place, Course_registered
+from App.models import (
+    User,
+    Courses,
+    Department,
+    Section,
+    Place,
+    Course_registered,
+    Course_prerequisite,
+)
 from App.forms import (
     RegisterForm,
     LoginForm,
@@ -10,9 +18,11 @@ from App.forms import (
     AddPlaceForm,
     EnrollSectionForm,
     DropSectionForm,
+    AddCoursePrerequisiteForm,
+    EditRoleForm,
+    DeleteUserForm,
 )
 from flask_login import login_user, logout_user, login_required, current_user
-import os
 
 
 @app.route("/")
@@ -223,8 +233,11 @@ def login_page():
                 f"Success! You're logged in as: {attempted_user.first_name} {attempted_user.last_name}",
                 category="success",
             )
-            if attempted_user.email_address == "mr@mr.com":
-                return redirect(url_for("add_course_page"))
+            if attempted_user.role == 2:
+                return redirect(url_for("users_page"))
+            # Todo -------------------------------------------------------------------
+            # elif attempted_user.role == 1:
+            #     return redirect(url_for("users_page"))
             return redirect(url_for("profile_page"))
         else:
             flash(
@@ -242,8 +255,11 @@ def logout_page():
     return redirect(url_for("home_page"))
 
 
-@app.route(os.getenv("admin") + "0", methods=["GET", "POST"])
+@app.route("/addCourse", methods=["GET", "POST"])
 def add_course_page():
+    if current_user.role != 2:
+        return render_template("unauthorized.html"), 403
+
     # To add a course
     form3 = AddCourseForm()
     if form3.validate_on_submit():
@@ -269,8 +285,11 @@ def add_course_page():
     return render_template("addcourse.html", form3=form3)
 
 
-@app.route(os.getenv("admin") + "1", methods=["GET", "POST"])
+@app.route("/addDepartment", methods=["GET", "POST"])
 def add_department_page():
+    if current_user.role != 2:
+        return render_template("unauthorized.html"), 403
+
     # To add a department
     form2 = AddDepartmentForm()
     if form2.validate_on_submit():
@@ -295,8 +314,11 @@ def add_department_page():
     return render_template("adddepartment.html", form2=form2)
 
 
-@app.route(os.getenv("admin") + "2", methods=["GET", "POST"])
+@app.route("/addSection", methods=["GET", "POST"])
 def add_section_page():
+    if current_user.role != 2:
+        return render_template("unauthorized.html"), 403
+
     form1 = AddSectionForm()
     if form1.validate_on_submit():
         section_to_create = Section(
@@ -326,8 +348,11 @@ def add_section_page():
     return render_template("addsection.html", form1=form1)
 
 
-@app.route(os.getenv("admin") + "3", methods=["GET", "POST"])
+@app.route("/addPlace", methods=["GET", "POST"])
 def add_place_page():
+    if current_user.role != 2:
+        return render_template("unauthorized.html"), 403
+
     # To add a place
     form1 = AddPlaceForm()
     if form1.validate_on_submit():
@@ -352,33 +377,84 @@ def add_place_page():
     return render_template("addplace.html", form1=form1)
 
 
-# @app.route(os.getenv("admin")+"4", methods=["GET", "POST"])
-# def add_course_prerequisite_page():
-#     # TODO To add a course_prerequisite
-#     form1 = AddCourseForm()
-#     if form1.validate_on_submit():
-#         course_to_create = Courses(
-#             id=form1.id.data,
-#             name=form1.name.data,
-#             department=form1.department.data,
-#             credit_hours=form1.credit_hours.data,
-#         )
-#         db.session.add(course_to_create)
-#         db.session.commit()
-#         flash(
-#             f"{course_to_create.name} is added Successfully!",
-#             category="success",
-#         )
+@app.route("/addCoursePrerequisite", methods=["GET", "POST"])
+def add_course_prerequisite_page():
+    if current_user.role != 2:
+        return render_template("unauthorized.html"), 403
+
+    # add a course_prerequisite
+    form = AddCoursePrerequisiteForm()
+    if form.validate_on_submit():
+        course_prerequisite_to_create = Course_prerequisite(
+            course_id=form.course_id.data,
+            prerequisite_id=form.prerequisite_id.data,
+        )
+        db.session.add(course_prerequisite_to_create)
+        db.session.commit()
+        flash(
+            f"{course_prerequisite_to_create.course_id}, {course_prerequisite_to_create.prerequisite_id} is added Successfully!",
+            category="success",
+        )
+
+    if form.errors != {}:
+        for err_msg in form.errors.values():
+            flash(
+                f"There was an error with adding a course prerequisite: {err_msg}",
+                category="danger",
+            )
+
+    return render_template("addcourseprerequisite.html", form=form)
 
 
-#     if form1.errors != {}:
-#         for err_msg in form1.errors.values():
-#             flash(
-#                 f"There was an error with adding a course: {err_msg}", category="danger"
-#             )
+@app.route("/users", methods=["GET", "POST"])
+@login_required
+def users_page():
+    if current_user.role != 2:
+        return render_template("unauthorized.html"), 403
+    edit_form = EditRoleForm()
+    delete_form = DeleteUserForm()
 
-#     return render_template("addcourse.html", form1=form1)
+    if request.method == "POST":
+        user_id = request.form.get("user_id")
+        new_role = request.form.get("role")
+        delete_user_id = request.form.get("delete_user_id")
 
-# @app.route('/about/<username>')
-# def about_page(username):
-#     return f'<h2>This is the About Page of {username} </h2>'
+        # Handle role edit
+        if user_id and new_role is not None:
+            try:
+                user = User.query.get(int(user_id))
+                user.role = int(new_role)
+                db.session.commit()
+                flash(
+                    f"Role for User {user_id} has been updated to {new_role}.",
+                    "success",
+                )
+            except Exception as e:
+                flash(f"Error updating role for User {user_id}: {e}", "danger")
+
+        # Handle user deletion
+        if delete_user_id:
+            try:
+                user_to_delete = User.query.get(int(delete_user_id))
+                db.session.delete(user_to_delete)
+                db.session.commit()
+                flash(f"User {delete_user_id} has been deleted.", "success")
+            except Exception as e:
+                flash(f"Error deleting User {delete_user_id}: {e}", "danger")
+
+        return redirect(url_for("users_page"))
+
+    if request.method == "GET":
+        query = request.args.get("query")
+        if query:
+            users = User.query.filter(
+                (User.first_name.ilike(f"%{query}%"))
+                | (User.last_name.ilike(f"%{query}%"))
+                | (User.email_address.ilike(f"%{query}%"))
+            ).all()
+        else:
+            users = User.query.all()
+
+        return render_template(
+            "users.html", users=users, edit_form=edit_form, delete_form=delete_form
+        )

@@ -23,19 +23,10 @@
     <div class="collapse navbar-collapse" id="navbarNav">
 
       <ul class="navbar-nav mr-auto">
-        {% if current_user.email_address!="mr@mr.com" %}
-
-        <li class="nav-item active">
-          <a class="nav-link" href=" {{url_for('home_page')}} ">Home <span class="sr-only">(current)</span></a>
-        </li>
-
+        {% if current_user.role == 2 %}
         <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('profile_page') }}">Profile</a>
+          <a class="nav-link" href="{{ url_for('users_page') }}">Users</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('ed_page') }}">Enroll/Drop</a>
-        </li>
-        {% else %}
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('add_course_page') }}">Add Course</a>
         </li>
@@ -49,7 +40,21 @@
           <a class="nav-link" href="{{ url_for('add_place_page') }}">Add Place</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('ed_page') }}">Add Course Prerequisite</a>
+          <a class="nav-link" href="{{ url_for('add_course_prerequisite_page') }}">Add Course Prerequisite</a>
+        </li>
+        {% elif current_user.role == 1 %}
+        <!-- Todo ------------------------------------------------------------------------------------- -->
+
+        {% else %}
+        <li class="nav-item active">
+          <a class="nav-link" href=" {{url_for('home_page')}} ">Home <span class="sr-only">(current)</span></a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('profile_page') }}">Profile</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('ed_page') }}">Enroll/Drop</a>
         </li>
         {% endif %}
 

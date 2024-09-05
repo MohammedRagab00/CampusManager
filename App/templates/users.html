@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %} Users {% endblock %}
+{% block content %}
+<div class="row" style="margin-top: 20px;margin-left: 20px;">
+
+    <form method="GET" action="{{ url_for('users_page') }}" class="form-inline mb-3">
+        <div class="input-group w-100">
+            <!-- Use w-100 for full width or adjust to desired percentage -->
+            <input class="form-control" type="search" name="query" placeholder="Search by name, email"
+                aria-label="Search">
+            <div class="input-group-append">
+                <button class="btn btn-outline-success" type="submit">Search</button>
+            </div>
+        </div>
+    </form>
+
+    <table class="table table-hover table-dark">
+        <thead>
+            <tr>
+                <!-- Your Columns HERE -->
+                <th scope="col">ID</th>
+                <th scope="col">First name</th>
+                <th scope="col">Last name</th>
+                <th scope="col">Email Address</th>
+                <th scope="col">Ssn</th>
+                <th scope="col">Role</th>
+                <th scope="col">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            {% include 'includes/edit_user.html' %}
+
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.first_name }}</td>
+                <td>{{ user.last_name }}</td>
+                <td>{{ user.email_address }}</td>
+                <td>{{ user.ssn }}</td>
+                <td>{{ user.role }}</td>
+                <td>
+                    <button class="btn btn-outline btn-success mr-2" data-toggle="modal"
+                        data-target="#Modal-EditRole-{{ user.id }}">
+                        Edit role
+                    </button>
+                    <button class="btn btn-outline-danger" data-toggle="modal"
+                        data-target="#Modal-DeleteUser-{{ user.id }}">
+                        Delete
+                    </button>
+                </td>
+
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+{% endblock %}
