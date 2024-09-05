@@ -43,8 +43,12 @@
           <a class="nav-link" href="{{ url_for('add_course_prerequisite_page') }}">Add Course Prerequisite</a>
         </li>
         {% elif current_user.role == 1 %}
-        <!-- Todo ------------------------------------------------------------------------------------- -->
-
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('instructor_dashboard') }}">Instructor Dashboard</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('teaching_page') }}">Teaching</a>
+        </li>
         {% else %}
         <li class="nav-item active">
           <a class="nav-link" href=" {{url_for('home_page')}} ">Home <span class="sr-only">(current)</span></a>

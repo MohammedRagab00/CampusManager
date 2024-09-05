@@ -5,14 +5,14 @@
 </style>
 <!-- CTRL + f to search -->
 
-<!-- Selling Confirm -->
-<div class="modal fade" id="Modal-DroppingConfirm-{{ sec.id }}" tabindex="-1" aria-labelledby="exampleModalLabel"
-    aria-hidden="true">
+<!-- Dropping Section -->
+<div class="modal fade" id="Modal-DroppingConfirm-{{ section.section_id }}" tabindex="-1"
+    aria-labelledby="exampleModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="ModalLabel">
-                    {{ sec.section_id }}
+                    {{ section.section_id }}
                 </h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
@@ -23,14 +23,14 @@
                     {{ drop_form.hidden_tag() }}
 
                     <h4 class="text-center">
-                        Are you sure you want to Drop {{ sec.section_id }}?
+                        Are you sure you want to Drop {{ section.section_id }}?
                     </h4>
                     <br>
                     <h6 class="text-center">
                         By clicking Drop, you'll drop this section.
                     </h6>
                     <br>
-                    <input id="drop_sec" name="drop_sec" type="hidden" value="{{sec.section_id}}">
+                    <input id="drop_sec" name="drop_sec" type="hidden" value="{{section.section_id}}">
                     {{ drop_form.submit(class="btn btn-outline-danger btn-block") }}
                 </form>
             </div>

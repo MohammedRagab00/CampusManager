@@ -21,6 +21,9 @@ from App.forms import (
     AddCoursePrerequisiteForm,
     EditRoleForm,
     DeleteUserForm,
+    GradeStudentForm,
+    RegisterTeachingForm,
+    UnRegisterTeachingForm,
 )
 from flask_login import login_user, logout_user, login_required, current_user
 
@@ -92,75 +95,6 @@ def ed_page():
             except ValueError:
                 return redirect(url_for("ed_page"))
 
-            d_sec_obj = Course_registered.query.filter_by(
-                student_id=current_user.id, section_id=drop_sec_id
-            ).first()
-
-            if d_sec_obj:
-                d_sec_obj.drop(current_user)
-                flash(
-                    f"Section: {drop_sec_id} is dropped successfully",
-                    category="success",
-                )
-            else:
-                flash("Section not found or you are not enrolled", category="danger")
-
-        return redirect(url_for("ed_page"))
-
-    if request.method == "GET":
-        sections = Section.query.all()
-        enrolled_sec = Course_registered.query.filter_by(
-            student_id=current_user.id
-        ).all()
-        return render_template(
-            "ed.html",
-            sections=sections,
-            enroll_form=enroll_form,
-            enrolled_sec=enrolled_sec,
-            drop_form=drop_form,
-        )
-
-    enroll_form = EnrollSectionForm()
-    drop_form = DropSectionForm()
-
-    if request.method == "POST":
-        # Enroll Section Logic
-        enroll_section_id = request.form.get("enrolled_section")
-
-        if enroll_section_id:
-            enroll_section_id = int(enroll_section_id)  # Convert to integer if needed
-            # Check if the user is already enrolled
-            existing_enrollment = Course_registered.query.filter_by(
-                student_id=current_user.id, section_id=enroll_section_id
-            ).first()
-
-            if existing_enrollment:
-                flash(
-                    f"Section: {enroll_section_id} is already enrolled",
-                    category="danger",
-                )
-            else:
-                # Fetch the section to enroll
-                sec_obj = Section.query.get(enroll_section_id)
-                if sec_obj and current_user.can_enroll(sec_obj):
-                    # Create a new Course_registered object for enrollment
-                    new_enrollment = Course_registered(
-                        student_id=current_user.id, section_id=enroll_section_id
-                    )
-                    db.session.add(new_enrollment)
-                    db.session.commit()
-                    flash(
-                        f"Section: {enroll_section_id} is successfully enrolled",
-                        category="success",
-                    )
-                else:
-                    flash("You cannot enroll in this section", category="danger")
-
-        # Drop Section Logic
-        drop_sec_id = request.form.get("drop_sec")
-
-        if drop_sec_id:
-            drop_sec_id = int(drop_sec_id)  # Convert to integer if needed
             d_sec_obj = Course_registered.query.filter_by(
                 student_id=current_user.id, section_id=drop_sec_id
             ).first()
@@ -457,4 +391,115 @@ def users_page():
 
         return render_template(
             "users.html", users=users, edit_form=edit_form, delete_form=delete_form
+        )
+
+
+@app.route("/instructor/dashboard")
+@login_required
+def instructor_dashboard():
+    if current_user.role != 1:
+        return render_template("unauthorized.html"), 403
+    taught_sections = current_user.taught_sections
+    return render_template("instructor_dashboard.html", taught_sections=taught_sections)
+
+
+@app.route("/instructor/register_teaching", methods=["GET", "POST"])
+@login_required
+def teaching_page():
+    if current_user.role != 1:
+        return render_template("unauthorized.html"), 403
+
+    register_form = RegisterTeachingForm()
+    unregister_form = UnRegisterTeachingForm()
+
+    if request.method == "POST":
+        if (
+            register_form.action.data == "register"
+            and register_form.validate_on_submit()
+        ):
+            reg_sec_id = register_form.section_id.data
+            section = Section.query.filter_by(id=reg_sec_id).first()
+            if section:
+                if section.instructor_id == current_user.id:
+                    flash("You are already registered for this section.", "warning")
+                else:
+                    section.instructor_id = current_user.id
+                    db.session.commit()
+                    flash(
+                        "Successfully registered for teaching the section.", "success"
+                    )
+                return redirect(url_for("instructor_dashboard"))
+            flash("Section not found.", "danger")
+
+        elif (
+            unregister_form.action.data == "unregister"
+            and unregister_form.validate_on_submit()
+        ):
+            unr_sec_id = unregister_form.section_id.data
+            section = Section.query.get(unr_sec_id)
+            if section:
+                if section.instructor_id is None:
+                    flash("You are not registered for this section.", "warning")
+                elif section.instructor_id != current_user.id:
+                    flash(
+                        "You cannot unregister from a section you are not assigned to.",
+                        "danger",
+                    )
+                else:
+                    section.instructor_id = None
+                    db.session.commit()
+                    flash(
+                        "Successfully unregistered from teaching the section.",
+                        "success",
+                    )
+                return redirect(url_for("instructor_dashboard"))
+            flash("Section not found.", "danger")
+
+        return redirect(url_for("teaching_page"))
+
+    if request.method == "GET":
+        return render_template(
+            "teaching.html",
+            register_form=register_form,
+            unregister_form=unregister_form,
+        )
+
+
+@app.route("/instructor/grade_students/<int:section_id>", methods=["GET", "POST"])
+@login_required
+def grade_students(section_id):
+    if current_user.role != 1:
+        return render_template("unauthorized.html"), 403
+
+    section = Section.query.get_or_404(section_id)
+    if section.instructor_id != current_user.id:
+        return render_template("unauthorized.html"), 403
+
+    form = GradeStudentForm()
+    if form.validate_on_submit():
+        # The form will now correctly validate the grade range
+        registration = Course_registered.query.filter_by(
+            student_id=form.student_id.data, section_id=section_id
+        ).first()
+        if registration:
+            registration.unregister_and_grade(form.grade.data)
+            flash("Grade submitted successfully.", "success")
+        else:
+            flash("Student not found in this section.", "danger")
+
+    if form.errors != {}:
+        for err_msg in form.errors.values():
+            flash(
+                f"There was an error with grading a student: {err_msg}",
+                category="danger",
+            )
+    if request.method == "GET":
+        registered_students = Course_registered.query.filter_by(
+            section_id=section_id
+        ).all()
+        return render_template(
+            "grade_students.html",
+            form=form,
+            students=registered_students,
+            section=section,
         )

@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, IntegerField
+from wtforms import StringField, PasswordField, SubmitField, IntegerField, HiddenField
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
 from App.models import User, Courses, Department, Place, Section, Course_prerequisite
 from flask import flash
@@ -68,7 +68,7 @@ class AddDepartmentForm(FlaskForm):
     name = StringField(label="Name: ", validators=[DataRequired()])
     head_id = IntegerField(label="Id of the department's head: ", default=0)
 
-    submit = SubmitField(label="Add Course")
+    submit = SubmitField(label="Add Department")
 
 
 class AddSectionForm(FlaskForm):
@@ -79,12 +79,18 @@ class AddSectionForm(FlaskForm):
         else:
             raise ValidationError("Course Id doesn't exist!")
 
-    def validate_place(self, place_to_check):
-        place_num = Place.query.filter_by(place_num=place_to_check.data).first()
-        if place_num:
-            pass
-        else:
-            raise ValidationError("Place doesn't exist!")
+    def validate_capacity(self, field):
+        place_num = self.place.data
+        section_capacity = field.data
+
+        place = Place.query.filter_by(place_num=place_num).first()
+        if not place:
+            raise ValidationError("Place not found.")
+
+        if section_capacity > place.capacity:
+            raise ValidationError(
+                "Section capacity cannot be greater than the place capacity."
+            )
 
     def validate_combination(self):
         course_id = self.course_id.data
@@ -194,10 +200,12 @@ class EditRoleForm(FlaskForm):
         label="Save!",
     )
 
+
 class DeleteUserForm(FlaskForm):
     submit = SubmitField(
         label="Delete!",
     )
+
 
 class AddCoursePrerequisiteForm(FlaskForm):
     def validate_course_id(self, course_id_to_check):
@@ -252,3 +260,25 @@ class AddCoursePrerequisiteForm(FlaskForm):
     )
 
     submit = SubmitField(label="Add Course Prerequisite")
+
+
+class RegisterTeachingForm(FlaskForm):
+    section_id = IntegerField(label="Section ID", validators=[DataRequired()])
+    action = HiddenField(default="register")  # Add this hidden field
+    submit = SubmitField(label="Register for Teaching")
+
+
+class UnRegisterTeachingForm(FlaskForm):
+    section_id = IntegerField(label="Section ID", validators=[DataRequired()])
+    action = HiddenField(default="unregister")  # Add this hidden field
+    submit = SubmitField(label="UnRegister from Teaching")
+
+
+class GradeStudentForm(FlaskForm):
+    student_id = IntegerField(label="Student ID", validators=[DataRequired()])
+    grade = IntegerField(label="Grade", validators=[DataRequired()])
+    submit = SubmitField(label="Submit Grade")
+
+    def validate_grade(self, field):
+        if field.data < 0 or field.data > 100:
+            raise ValidationError("Grade must be between 0 and 100.")

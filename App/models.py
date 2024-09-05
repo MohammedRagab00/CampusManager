@@ -23,6 +23,10 @@ class User(db.Model, UserMixin):
         "Course_registered", backref="student", lazy=True
     )
 
+    taught_sections = db.relationship(
+        "Section", backref="instructor", lazy=True, foreign_keys="Section.instructor_id"
+    )
+
     @property
     def password(self):
         return self.password
@@ -97,6 +101,7 @@ class Section(db.Model):
     registered_courses = db.relationship(
         "Course_registered", backref="section", lazy=True
     )
+    instructor_id = db.Column(db.Integer(), db.ForeignKey("user.id"))
 
 
 class Course_registered(db.Model):
@@ -111,6 +116,34 @@ class Course_registered(db.Model):
     def drop(self, user):
         self.student_id = user.id
         db.session.delete(self)
+        db.session.commit()
+
+    def unregister_and_grade(self, grade):
+        self.grade = grade
+
+        # Create a Course_grade entry
+        course_grade = Course_grade(
+            semester=self.section.semester,
+            course_id=self.section.course_id,
+            student_id=self.student_id,
+            grade=grade,
+        )
+        db.session.add(course_grade)
+
+        # Delete all registrations matching course_id and group
+        registrations_to_delete = (
+            Course_registered.query.join(Section)
+            .filter(
+                Course_registered.student_id == self.student_id,
+                Section.course_id == self.section.course_id,
+                Section.group == self.section.group,
+            )
+            .all()
+        )
+
+        for registration in registrations_to_delete:
+            db.session.delete(registration)
+
         db.session.commit()
 
 

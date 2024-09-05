@@ -48,15 +48,15 @@
         <p>Click on section to drop</p>
         <br>
         <div class="row">
-            {% for sec in enrolled_sec %}
+            {% for section in enrolled_sec %}
             {% include 'includes/owned_items_modals.html' %}
 
             <div class="col-md-6">
                 <div style="margin-bottom: 5px" class="card text-center bg-dark">
                     <div class="card-body">
-                        <h5 class="card-title">{{ sec.section_id }}</h5>
+                        <h5 class="card-title">{{ section.section_id }}</h5>
                         <button type="button" class="btn btn-outline-danger" style="margin-bottom: 5px"
-                            data-toggle="modal" data-target="#Modal-DroppingConfirm-{{ sec.id }}">
+                            data-toggle="modal" data-target="#Modal-DroppingConfirm-{{ section.section_id }}">
                             Drop this section
                         </button>
                     </div>
