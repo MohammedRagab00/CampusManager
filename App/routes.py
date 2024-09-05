@@ -8,6 +8,7 @@ from App.models import (
     Place,
     Course_registered,
     Course_prerequisite,
+    Course_grade,
 )
 from App.forms import (
     RegisterForm,
@@ -72,16 +73,39 @@ def ed_page():
                 # Fetch the section to enroll
                 sec_obj = Section.query.get(enroll_section_id)
                 if sec_obj and current_user.can_enroll(sec_obj):
-                    # Create a new Course_registered object for enrollment
-                    new_enrollment = Course_registered(
-                        student_id=current_user.id, section_id=enroll_section_id
-                    )
-                    db.session.add(new_enrollment)
-                    db.session.commit()
-                    flash(
-                        f"Section: {enroll_section_id} is successfully enrolled",
-                        category="success",
-                    )
+                    # Check prerequisites
+                    prerequisites = Course_prerequisite.query.filter_by(
+                        course_id=sec_obj.course_id
+                    ).all()
+                    prerequisites_met = True
+
+                    for prerequisite in prerequisites:
+                        grade_entry = Course_grade.query.filter_by(
+                            student_id=current_user.id,
+                            course_id=prerequisite.prerequisite_id,
+                            semester=sec_obj.semester,
+                        ).first()
+
+                        if not grade_entry or grade_entry.grade < 60:
+                            prerequisites_met = False
+                            break
+
+                    if prerequisites_met:
+                        # Create a new Course_registered object for enrollment
+                        new_enrollment = Course_registered(
+                            student_id=current_user.id, section_id=enroll_section_id
+                        )
+                        db.session.add(new_enrollment)
+                        db.session.commit()
+                        flash(
+                            f"Section: {enroll_section_id} is successfully enrolled",
+                            category="success",
+                        )
+                    else:
+                        flash(
+                            "You have not met the prerequisites for this section",
+                            category="danger",
+                        )
                 else:
                     flash("You cannot enroll in this section", category="danger")
 
@@ -111,13 +135,46 @@ def ed_page():
         return redirect(url_for("ed_page"))
 
     if request.method == "GET":
+        # Fetch all sections
         sections = Section.query.all()
+
+        # Filter out sections where the user has already passed the course
+        valid_sections = []
+        for sec in sections:
+            # Check if user has already passed the course
+            grade_entry = Course_grade.query.filter_by(
+                student_id=current_user.id,
+                course_id=sec.course_id,
+                semester=sec.semester,
+            ).first()
+
+            if not grade_entry or grade_entry.grade < 60:
+                # Check prerequisites if not already passed
+                prerequisites = Course_prerequisite.query.filter_by(
+                    course_id=sec.course_id
+                ).all()
+                prerequisites_met = True
+
+                for prerequisite in prerequisites:
+                    prereq_grade_entry = Course_grade.query.filter_by(
+                        student_id=current_user.id,
+                        course_id=prerequisite.prerequisite_id,
+                        semester=sec.semester,
+                    ).first()
+
+                    if not prereq_grade_entry or prereq_grade_entry.grade < 60:
+                        prerequisites_met = False
+                        break
+
+                if prerequisites_met:
+                    valid_sections.append(sec)
+
         enrolled_sec = Course_registered.query.filter_by(
             student_id=current_user.id
         ).all()
         return render_template(
             "ed.html",
-            sections=sections,
+            sections=valid_sections,
             enroll_form=enroll_form,
             enrolled_sec=enrolled_sec,
             drop_form=drop_form,
@@ -169,9 +226,8 @@ def login_page():
             )
             if attempted_user.role == 2:
                 return redirect(url_for("users_page"))
-            # Todo -------------------------------------------------------------------
-            # elif attempted_user.role == 1:
-            #     return redirect(url_for("users_page"))
+            elif attempted_user.role == 1:
+                return redirect(url_for("instructor_dashboard"))
             return redirect(url_for("profile_page"))
         else:
             flash(
@@ -477,29 +533,35 @@ def grade_students(section_id):
 
     form = GradeStudentForm()
     if form.validate_on_submit():
-        # The form will now correctly validate the grade range
+        # Form submission handling
         registration = Course_registered.query.filter_by(
             student_id=form.student_id.data, section_id=section_id
         ).first()
         if registration:
             registration.unregister_and_grade(form.grade.data)
             flash("Grade submitted successfully.", "success")
+            return redirect(
+                url_for("grade_students", section_id=section_id)
+            )  # Redirect after successful submission
         else:
             flash("Student not found in this section.", "danger")
+            return redirect(
+                url_for("grade_students", section_id=section_id)
+            )  # Redirect even when student is not found
 
+    # Handle form errors
     if form.errors != {}:
         for err_msg in form.errors.values():
             flash(
                 f"There was an error with grading a student: {err_msg}",
                 category="danger",
             )
-    if request.method == "GET":
-        registered_students = Course_registered.query.filter_by(
-            section_id=section_id
-        ).all()
-        return render_template(
-            "grade_students.html",
-            form=form,
-            students=registered_students,
-            section=section,
-        )
+
+    # Return the page with the form and students in case of GET request or form error
+    registered_students = Course_registered.query.filter_by(section_id=section_id).all()
+    return render_template(
+        "grade_students.html",
+        form=form,
+        students=registered_students,
+        section=section,
+    )

@@ -66,16 +66,16 @@ class Courses(db.Model):
     credit_hours = db.Column(db.Integer(), nullable=False, default=3)
     department = db.Column(db.Integer(), db.ForeignKey("department.id"))
 
-    # Specify foreign_keys argument and change backref name
+    # Relationship to Course_prerequisite
     courses = db.relationship(
         "Course_prerequisite",
         backref="course",
         lazy=True,
         foreign_keys="[Course_prerequisite.prerequisite_id]",
     )
-    sections = db.relationship(
-        "Section", backref="course", lazy=True, foreign_keys="[Section.course_id]"
-    )
+
+    # Relationship to Section
+    sections = db.relationship("Section", back_populates="course", lazy=True)
 
 
 class Course_prerequisite(db.Model):
@@ -98,6 +98,11 @@ class Section(db.Model):
     group = db.Column(db.Integer(), nullable=False)
     capacity = db.Column(db.Integer(), nullable=False, default=26)
 
+    # Relationship to Courses with back_populates
+    course = db.relationship(
+        "Courses", back_populates="sections", foreign_keys=[course_id]
+    )
+
     registered_courses = db.relationship(
         "Course_registered", backref="section", lazy=True
     )
@@ -108,19 +113,7 @@ class Course_registered(db.Model):
     student_id = db.Column(db.Integer(), db.ForeignKey("user.id"), primary_key=True)
     section_id = db.Column(db.Integer(), db.ForeignKey("section.id"), primary_key=True)
 
-    def enroll(self, user):
-        self.student_id = user.id
-        db.session.add(self)
-        db.session.commit()
-
-    def drop(self, user):
-        self.student_id = user.id
-        db.session.delete(self)
-        db.session.commit()
-
     def unregister_and_grade(self, grade):
-        self.grade = grade
-
         # Create a Course_grade entry
         course_grade = Course_grade(
             semester=self.section.semester,
@@ -129,6 +122,18 @@ class Course_registered(db.Model):
             grade=grade,
         )
         db.session.add(course_grade)
+
+        # Get the course credit hours
+        course_credit_hours = self.section.course.credit_hours
+
+        user = User.query.get(self.student_id)
+        if user:
+            # Update the GPA (weighted by course credit hours)
+            self.update_gpa(user, grade, course_credit_hours)
+
+            # Update passed credit hours if grade >= 60
+            if grade >= 60:
+                user.passed_credit_hours += course_credit_hours
 
         # Delete all registrations matching course_id and group
         registrations_to_delete = (
@@ -146,11 +151,39 @@ class Course_registered(db.Model):
 
         db.session.commit()
 
+    @staticmethod
+    def grade_to_gpa(grade):
+        """Convert a numeric grade to the corresponding GPA."""
+        if 60 <= grade <= 64:
+            return 1.0 + (grade - 60) * 0.1
+        elif 65 <= grade <= 74:
+            return 1.5 + (grade - 65) * 0.1
+        elif 75 <= grade <= 84:
+            return 2.5 + (grade - 75) * 0.1
+        elif 85 <= grade <= 100:
+            return 3.5 + (grade - 85) * 0.1
+        return 0  # GPA is 0 for grades below 60
 
-# class Grade(db.Model):
-#     student_id = db.Column(db.Integer(), db.ForeignKey("user.id"), primary_key=True)
-#     semester = db.Column(db.String(length=20), primary_key=True)
-#     grade = db.Column(db.Integer(), nullable=False)
+    def update_gpa(self, user, grade, course_credit_hours):
+        # Convert the numeric grade to the corresponding GPA
+        gpa_value = self.grade_to_gpa(grade)
+
+        # Calculate the current total weighted GPA and total credits
+        total_grades = user.gpa * user.passed_credit_hours
+
+        # Update total grades with the new GPA value
+        total_grades += gpa_value * course_credit_hours
+
+        # Update total credits
+        total_credits = user.passed_credit_hours + course_credit_hours
+
+        # Calculate new GPA
+        new_gpa = total_grades / total_credits
+
+        # Ensure GPA does not exceed the maximum value
+        user.gpa = min(new_gpa, 5)
+
+        db.session.commit()
 
 
 class Course_grade(db.Model):
