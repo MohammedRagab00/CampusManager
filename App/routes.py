@@ -67,7 +67,6 @@ def ed_page():
             except ValueError:
                 return redirect(url_for("ed_page"))
 
-            # Check if the user is already enrolled
             existing_enrollment = Course_registered.query.filter_by(
                 student_id=current_user.id, section_id=enroll_section_id
             ).first()
@@ -78,10 +77,8 @@ def ed_page():
                     category="danger",
                 )
             else:
-                # Fetch the section to enroll
                 sec_obj = Section.query.get(enroll_section_id)
                 if sec_obj and current_user.can_enroll(sec_obj):
-                    # Check prerequisites
                     prerequisites = Course_prerequisite.query.filter_by(
                         course_id=sec_obj.course_id
                     ).all()
@@ -99,7 +96,6 @@ def ed_page():
                             break
 
                     if prerequisites_met:
-                        # Create a new Course_registered object for enrollment
                         new_enrollment = Course_registered(
                             student_id=current_user.id, section_id=enroll_section_id
                         )
@@ -143,13 +139,10 @@ def ed_page():
         return redirect(url_for("ed_page"))
 
     if request.method == "GET":
-        # Fetch all sections
         sections = Section.query.all()
 
-        # Filter out sections where the user has already passed the course
         valid_sections = []
         for sec in sections:
-            # Check if user has already passed the course
             grade_entry = Course_grade.query.filter_by(
                 student_id=current_user.id,
                 course_id=sec.course_id,
@@ -157,7 +150,6 @@ def ed_page():
             ).first()
 
             if not grade_entry or grade_entry.grade < 60:
-                # Check prerequisites if not already passed
                 prerequisites = Course_prerequisite.query.filter_by(
                     course_id=sec.course_id
                 ).all()
@@ -180,6 +172,7 @@ def ed_page():
         enrolled_sec = Course_registered.query.filter_by(
             student_id=current_user.id
         ).all()
+
         return render_template(
             "ed.html",
             sections=valid_sections,
