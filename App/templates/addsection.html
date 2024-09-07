@@ -5,7 +5,6 @@
 <body class="text-center">
     <div class="container">
         <form method="POST" class="form-register" style="color: white">
-            <!--To save us from attacks-->
             {{ form1.hidden_tag() }}
 
             <br>
@@ -20,18 +19,22 @@
             {{ form1.type.label() }}
             {{ form1.type(class="form-control", placeholder="Enter type") }}
             {{ form1.day.label() }}
-            {{form1.day(class="form-control", placeholder="Enter day")}}
-            {{ form1.time.label() }}
-            {{form1.time(class="form-control", placeholder="Enter time")}}
+            {{ form1.day(class="form-control", placeholder="Enter day") }}
+
+            <!-- Update to handle start_time and end_time -->
+            {{ form1.start_time.label() }}
+            {{ form1.start_time(class="form-control", placeholder="Enter start time") }}
+            {{ form1.end_time.label() }}
+            {{ form1.end_time(class="form-control", placeholder="Enter end time") }}
+
             {{ form1.group.label() }}
-            {{form1.group(class="form-control", placeholder="Enter group")}}
+            {{ form1.group(class="form-control", placeholder="Enter group") }}
             {{ form1.capacity.label() }}
-            {{form1.capacity(class="form-control", placeholder="Enter capacity")}}
+            {{ form1.capacity(class="form-control", placeholder="Enter capacity") }}
             <br />
 
             {{ form1.submit(class="btn btn-lg btn-block btn-primary") }}
         </form>
-
     </div>
 </body>
 {% endblock %}

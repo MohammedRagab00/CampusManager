@@ -2,3 +2,5 @@
 .vscode
 notes.txt
 .venv
+__pycache__/
+twilio_recovery_code.txt

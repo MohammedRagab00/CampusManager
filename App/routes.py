@@ -1,4 +1,4 @@
-from App import app, db
+from App import app, db, s, mail
 from flask import render_template, redirect, url_for, flash, request
 from App.models import (
     User,
@@ -9,6 +9,7 @@ from App.models import (
     Course_registered,
     Course_prerequisite,
     Course_grade,
+    Grade,
 )
 from App.forms import (
     RegisterForm,
@@ -25,8 +26,12 @@ from App.forms import (
     GradeStudentForm,
     RegisterTeachingForm,
     UnRegisterTeachingForm,
+    ForgotPasswordForm,
+    ResetPasswordForm,
 )
 from flask_login import login_user, logout_user, login_required, current_user
+from flask_mail import Message
+from itsdangerous import SignatureExpired
 
 
 @app.route("/")
@@ -45,6 +50,9 @@ def profile_page():
 @app.route("/ed", methods=["GET", "POST"])
 @login_required
 def ed_page():
+    if current_user.role != 0:
+        return render_template("unauthorized.html"), 403
+
     enroll_form = EnrollSectionForm()
     drop_form = DropSectionForm()
 
@@ -213,9 +221,7 @@ def register_page():
 def login_page():
     form = LoginForm()
     if form.validate_on_submit():
-        attempted_user = User.query.filter_by(
-            email_address=form.email_address.data
-        ).first()
+        attempted_user = User.find_by_email(form.email_address.data)
         if attempted_user and attempted_user.check_password_correction(
             attempted_password=form.password.data
         ):
@@ -231,11 +237,63 @@ def login_page():
             return redirect(url_for("profile_page"))
         else:
             flash(
-                "Username and Password are not matched! Please try again",
+                "Email and Password are not matched! Please try again",
                 category="danger",
             )
 
     return render_template("login.html", form=form)
+
+
+@app.route("/forgot_password", methods=["GET", "POST"])
+def forgot_password():
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        email = form.email_address.data
+        user = User.query.filter_by(email_address=email).first()
+        if user:
+            token = s.dumps(email, salt="password-reset-salt")
+            reset_url = url_for("reset_password", token=token, _external=True)
+            msg = Message(
+                "Password Reset Request",
+                sender=app.config["MAIL_USERNAME"],
+                recipients=[email],
+            )
+            msg.body = f"To reset your password, visit the following link: {reset_url}"
+            mail.send(msg)
+            flash("A password reset link has been sent to your email.", "info")
+            return redirect(url_for("login_page"))
+        else:
+            flash("No account found with that email address.", "danger")
+    return render_template("forgot_password.html", form=form)
+
+
+@app.route("/reset_password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    try:
+        email = s.loads(token, salt="password-reset-salt", max_age=3600)
+    except SignatureExpired:
+        flash("The link has expired.", "danger")
+        return redirect(url_for("forgot_password"))
+
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email_address=email).first()
+        if user:
+            user.password = form.password.data
+            db.session.commit()
+            flash("Your password has been updated!", "success")
+            return redirect(url_for("login_page"))
+        else:
+            flash("Invalid request.", "danger")
+
+    if form.errors != {}:
+        for err_msg in form.errors.values():
+            flash(
+                f"There was an error with resetting the password: {err_msg}",
+                category="danger",
+            )
+
+    return render_template("reset_password.html", form=form)
 
 
 @app.route("/logout")
@@ -246,6 +304,7 @@ def logout_page():
 
 
 @app.route("/addCourse", methods=["GET", "POST"])
+@login_required
 def add_course_page():
     if current_user.role != 2:
         return render_template("unauthorized.html"), 403
@@ -276,6 +335,7 @@ def add_course_page():
 
 
 @app.route("/addDepartment", methods=["GET", "POST"])
+@login_required
 def add_department_page():
     if current_user.role != 2:
         return render_template("unauthorized.html"), 403
@@ -305,6 +365,7 @@ def add_department_page():
 
 
 @app.route("/addSection", methods=["GET", "POST"])
+@login_required
 def add_section_page():
     if current_user.role != 2:
         return render_template("unauthorized.html"), 403
@@ -317,14 +378,15 @@ def add_section_page():
             semester=form1.semester.data,
             type=form1.type.data,
             day=form1.day.data,
-            time=form1.time.data,
+            # Use start_time and end_time instead of a single time field
+            time=f"{form1.start_time.data.strftime('%H:%M')} - {form1.end_time.data.strftime('%H:%M')}",
             group=form1.group.data,
             capacity=form1.capacity.data,
         )
         db.session.add(section_to_create)
         db.session.commit()
         flash(
-            f"{section_to_create.id} is added Successfully!",
+            f"Section {section_to_create.id} added successfully!",
             category="success",
         )
 
@@ -339,6 +401,7 @@ def add_section_page():
 
 
 @app.route("/addPlace", methods=["GET", "POST"])
+@login_required
 def add_place_page():
     if current_user.role != 2:
         return render_template("unauthorized.html"), 403
@@ -368,6 +431,7 @@ def add_place_page():
 
 
 @app.route("/addCoursePrerequisite", methods=["GET", "POST"])
+@login_required
 def add_course_prerequisite_page():
     if current_user.role != 2:
         return render_template("unauthorized.html"), 403
@@ -401,49 +465,68 @@ def add_course_prerequisite_page():
 def users_page():
     if current_user.role != 2:
         return render_template("unauthorized.html"), 403
+
     edit_form = EditRoleForm()
     delete_form = DeleteUserForm()
 
     if request.method == "POST":
-        user_id = request.form.get("user_id")
-        new_role = request.form.get("role")
         delete_user_id = request.form.get("delete_user_id")
+        user_id = request.form.get("user_id")
 
-        # Handle role edit
-        if user_id and new_role is not None:
-            try:
-                user = User.query.get(int(user_id))
-                user.role = int(new_role)
-                db.session.commit()
-                flash(
-                    f"Role for User {user_id} has been updated to {new_role}.",
-                    "success",
-                )
-            except Exception as e:
-                flash(f"Error updating role for User {user_id}: {e}", "danger")
-
-        # Handle user deletion
+        # Handle deletion
         if delete_user_id:
-            try:
-                user_to_delete = User.query.get(int(delete_user_id))
-                db.session.delete(user_to_delete)
-                db.session.commit()
-                flash(f"User {delete_user_id} has been deleted.", "success")
-            except Exception as e:
-                flash(f"Error deleting User {delete_user_id}: {e}", "danger")
+            delete_user_id = int(delete_user_id)
+            if delete_user_id == current_user.id:
+                flash("You cannot delete your own account!", "danger")
+            else:
+                try:
+                    user_to_delete = User.query.get(delete_user_id)
+                    if user_to_delete:
+                        db.session.delete(user_to_delete)
+                        db.session.commit()
+                        flash(f"User {delete_user_id} has been deleted.", "success")
+                    else:
+                        flash(f"User {delete_user_id} not found.", "danger")
+                except Exception as e:
+                    flash(f"Error deleting User {delete_user_id}: {e}", "danger")
+
+        # Handle role editing
+        elif user_id and edit_form.validate_on_submit():
+            user = User.query.get(int(user_id))
+            if user:
+                try:
+                    new_role = int(request.form.get("role"))
+                    if new_role == 0 and not user.grade:
+                        user.grade = Grade(user=user)
+                        db.session.add(
+                            user.grade
+                        )  # Ensure the new Grade record is added to the session
+                    elif new_role != 0 and user.grade:
+                        db.session.delete(user.grade)
+
+                    user.role = new_role
+                    db.session.commit()
+                    flash(
+                        f"Role for User {user_id} has been updated to {user.role}.",
+                        "success",
+                    )
+                except Exception as e:
+                    db.session.rollback()  # Rollback in case of error
+                    flash(f"Error updating role for User {user_id}: {e}", "danger")
 
         return redirect(url_for("users_page"))
 
     if request.method == "GET":
+        page = request.args.get("page", 1, type=int)
         query = request.args.get("query")
         if query:
             users = User.query.filter(
                 (User.first_name.ilike(f"%{query}%"))
                 | (User.last_name.ilike(f"%{query}%"))
                 | (User.email_address.ilike(f"%{query}%"))
-            ).all()
+            ).paginate(page=page, per_page=10)
         else:
-            users = User.query.all()
+            users = User.query.paginate(page=page, per_page=10)
 
         return render_template(
             "users.html", users=users, edit_form=edit_form, delete_form=delete_form
@@ -533,24 +616,23 @@ def grade_students(section_id):
 
     form = GradeStudentForm()
     if form.validate_on_submit():
-        # Form submission handling
         registration = Course_registered.query.filter_by(
             student_id=form.student_id.data, section_id=section_id
         ).first()
+
         if registration:
-            registration.unregister_and_grade(form.grade.data)
-            flash("Grade submitted successfully.", "success")
-            return redirect(
-                url_for("grade_students", section_id=section_id)
-            )  # Redirect after successful submission
+            student = registration.student
+            if student.role == 0:  # Ensure the student has the correct role
+                registration.unregister_and_grade(form.grade.data)
+                flash("Grade submitted successfully.", "success")
+            else:
+                flash("Student does not have the correct role for grading.", "danger")
         else:
             flash("Student not found in this section.", "danger")
-            return redirect(
-                url_for("grade_students", section_id=section_id)
-            )  # Redirect even when student is not found
+        return redirect(url_for("grade_students", section_id=section_id))
 
     # Handle form errors
-    if form.errors != {}:
+    if form.errors:
         for err_msg in form.errors.values():
             flash(
                 f"There was an error with grading a student: {err_msg}",

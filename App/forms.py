@@ -1,5 +1,12 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, SubmitField, IntegerField, HiddenField
+from wtforms import (
+    StringField,
+    PasswordField,
+    SubmitField,
+    IntegerField,
+    HiddenField,
+    TimeField,
+)
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
 from App.models import User, Courses, Department, Place, Section, Course_prerequisite
 from flask import flash
@@ -66,7 +73,7 @@ class AddDepartmentForm(FlaskForm):
             raise ValidationError("Department already exists!")
 
     name = StringField(label="Name: ", validators=[DataRequired()])
-    head_id = IntegerField(label="Id of the department's head: ", default=0)
+    head_id = IntegerField(label="Department Head ID: ", default=0)
 
     submit = SubmitField(label="Add Department")
 
@@ -109,6 +116,11 @@ class AddSectionForm(FlaskForm):
             return False
         return True
 
+    def validate_times(self, start_time, end_time):
+        """Custom validator to check that end_time is after start_time."""
+        if start_time.data >= end_time.data:
+            raise ValidationError("End time must be later than start time.")
+
     def validate(self, extra_validators=None):
         """Override the validate method to include custom validation."""
         if not super(AddSectionForm, self).validate(extra_validators):
@@ -127,7 +139,8 @@ class AddSectionForm(FlaskForm):
     )
     type = StringField(label="Type: ", validators=[DataRequired()])
     day = IntegerField(label="Day: ", validators=[DataRequired()])
-    time = StringField(label="Time: ", validators=[DataRequired()])
+    start_time = TimeField(label="Start Time: ", validators=[DataRequired()])
+    end_time = TimeField(label="End Time: ", validators=[DataRequired()])
     group = IntegerField(label="Group: ", validators=[DataRequired()])
     capacity = IntegerField(label="Max capacity: ", validators=[DataRequired()])
 
@@ -282,3 +295,23 @@ class GradeStudentForm(FlaskForm):
     def validate_grade(self, field):
         if field.data < 0 or field.data > 100:
             raise ValidationError("Grade must be between 0 and 100.")
+
+    def validate_student_id(self, field):
+        user = User.query.get(field.data)
+        if not user or user.role != 0:
+            raise ValidationError(
+                "Invalid student ID or student does not have the correct role."
+            )
+
+
+class ForgotPasswordForm(FlaskForm):
+    email_address = StringField("Email Address", validators=[DataRequired(), Email()])
+    submit = SubmitField("Send Reset Link")
+
+
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField("New Password", validators=[DataRequired()])
+    confirm_password = PasswordField(
+        "Confirm Password", validators=[DataRequired(), EqualTo("password")]
+    )
+    submit = SubmitField("Reset Password")
