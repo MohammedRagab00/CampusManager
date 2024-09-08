@@ -27,11 +27,10 @@
                         <tr>
                             <td>{{ section.id }}</td>
                             <td>{{ section.course_id }}</td>
-                            <td>{{ section.day }}</td>
-                            <!-- Concatenate start_time and end_time -->
+                            <td>{{ section.day.name.capitalize() }}</td>
                             <td>{{ section.start_time.strftime('%H:%M') }} - {{ section.end_time.strftime('%H:%M') }}
                             </td>
-                            <td>{{ section.type }}</td>
+                            <td>{{ section.type.name.capitalize() }}</td>
                             <td>{{ section.place }}</td>
                             <td>{{ section.group }}</td>
                             <td>

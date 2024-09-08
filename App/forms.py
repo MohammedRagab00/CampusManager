@@ -6,9 +6,19 @@ from wtforms import (
     IntegerField,
     HiddenField,
     TimeField,
+    SelectField,
 )
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
-from App.models import User, Courses, Department, Place, Section, Course_prerequisite
+from App.models import (
+    User,
+    Courses,
+    Department,
+    Place,
+    Section,
+    Course_prerequisite,
+    SectionType,
+    WeekDay,
+)
 from flask import flash
 
 
@@ -81,9 +91,7 @@ class AddDepartmentForm(FlaskForm):
 class AddSectionForm(FlaskForm):
     def validate_course_id(self, course_id_to_check):
         course_id = Courses.query.filter_by(id=course_id_to_check.data).first()
-        if course_id:
-            pass
-        else:
+        if not course_id:
             raise ValidationError("Course Id doesn't exist!")
 
     def validate_capacity(self, field):
@@ -104,7 +112,6 @@ class AddSectionForm(FlaskForm):
         section_type = self.type.data
         group = self.group.data
 
-        # Query the database to check if the combination already exists
         section = Section.query.filter_by(
             course_id=course_id, type=section_type, group=group
         ).first()
@@ -116,17 +123,14 @@ class AddSectionForm(FlaskForm):
             return False
         return True
 
-    def validate_times(self, start_time, end_time):
-        """Custom validator to check that end_time is after start_time."""
-        if start_time.data >= end_time.data:
-            raise ValidationError("End time must be later than start time.")
+    def validate_end_time(self, end_time):
+        if self.start_time.data and end_time.data <= self.start_time.data:
+            raise ValidationError("End time must be after start time.")
 
     def validate(self, extra_validators=None):
-        """Override the validate method to include custom validation."""
         if not super(AddSectionForm, self).validate(extra_validators):
             return False
 
-        # Call the custom combination validator
         if not self.validate_combination():
             return False
 
@@ -137,8 +141,27 @@ class AddSectionForm(FlaskForm):
     semester = StringField(
         label="Semester: ", validators=[DataRequired(), Length(max=20)]
     )
-    type = StringField(label="Type: ", validators=[DataRequired()])
-    day = IntegerField(label="Day: ", validators=[DataRequired()])
+    type = SelectField(
+        "Type",
+        choices=[
+            (SectionType.THEORETICAL.name, "Theoretical"),
+            (SectionType.TUTORIAL.name, "Tutorial"),
+            (SectionType.LAB.name, "Lab"),
+        ],
+        validators=[DataRequired()],
+    )
+    day = SelectField(
+        "Day",
+        choices=[
+            (WeekDay.SATURDAY.name, "Saturday"),
+            (WeekDay.SUNDAY.name, "Sunday"),
+            (WeekDay.MONDAY.name, "Monday"),
+            (WeekDay.TUESDAY.name, "Tuesday"),
+            (WeekDay.WEDNESDAY.name, "Wednesday"),
+            (WeekDay.THURSDAY.name, "Thursday"),
+        ],
+        validators=[DataRequired()],
+    )
     start_time = TimeField(label="Start Time: ", validators=[DataRequired()])
     end_time = TimeField(label="End Time: ", validators=[DataRequired()])
     group = IntegerField(label="Group: ", validators=[DataRequired()])

@@ -10,6 +10,8 @@ from App.models import (
     Course_prerequisite,
     Course_grade,
     Grade,
+    SectionType,
+    WeekDay,
 )
 from App.forms import (
     RegisterForm,
@@ -78,38 +80,63 @@ def ed_page():
                 )
             else:
                 sec_obj = Section.query.get(enroll_section_id)
+
                 if sec_obj and current_user.can_enroll(sec_obj):
-                    prerequisites = Course_prerequisite.query.filter_by(
-                        course_id=sec_obj.course_id
+                    # Fetch existing enrollments for the student
+                    existing_enrollments = Course_registered.query.filter_by(
+                        student_id=current_user.id
                     ).all()
-                    prerequisites_met = True
 
-                    for prerequisite in prerequisites:
-                        grade_entry = Course_grade.query.filter_by(
-                            student_id=current_user.id,
-                            course_id=prerequisite.prerequisite_id,
-                            semester=sec_obj.semester,
-                        ).first()
+                    # Get Section objects for the existing enrollments
+                    existing_sections = [
+                        Section.query.get(enrollment.section_id)
+                        for enrollment in existing_enrollments
+                    ]
 
-                        if not grade_entry or grade_entry.grade < 60:
-                            prerequisites_met = False
-                            break
-
-                    if prerequisites_met:
-                        new_enrollment = Course_registered(
-                            student_id=current_user.id, section_id=enroll_section_id
-                        )
-                        db.session.add(new_enrollment)
-                        db.session.commit()
+                    # Check for time conflict before enrolling
+                    if Section.check_time_conflict(existing_sections, sec_obj):
                         flash(
-                            f"Section: {enroll_section_id} is successfully enrolled",
-                            category="success",
-                        )
-                    else:
-                        flash(
-                            "You have not met the prerequisites for this section",
+                            "Time conflict with another enrolled section!",
                             category="danger",
                         )
+                    elif sec_obj.is_full():
+                        flash(
+                            "The section has reached its maximum capacity!",
+                            category="danger",
+                        )
+                    else:
+                        # Proceed with enrollment if no conflict
+                        prerequisites = Course_prerequisite.query.filter_by(
+                            course_id=sec_obj.course_id
+                        ).all()
+                        prerequisites_met = True
+
+                        for prerequisite in prerequisites:
+                            grade_entry = Course_grade.query.filter_by(
+                                student_id=current_user.id,
+                                course_id=prerequisite.prerequisite_id,
+                                semester=sec_obj.semester,
+                            ).first()
+
+                            if not grade_entry or grade_entry.grade < 60:
+                                prerequisites_met = False
+                                break
+
+                        if prerequisites_met:
+                            new_enrollment = Course_registered(
+                                student_id=current_user.id, section_id=enroll_section_id
+                            )
+                            db.session.add(new_enrollment)
+                            db.session.commit()
+                            flash(
+                                f"Section: {enroll_section_id} is successfully enrolled",
+                                category="success",
+                            )
+                        else:
+                            flash(
+                                "You have not met the prerequisites for this section",
+                                category="danger",
+                            )
                 else:
                     flash("You cannot enroll in this section", category="danger")
 
@@ -128,7 +155,9 @@ def ed_page():
             ).first()
 
             if d_sec_obj:
-                d_sec_obj.drop(current_user)
+                d_sec_obj.unregister_and_grade(
+                    grade=0
+                )  # Assuming a default grade of 0 or adjust as needed
                 flash(
                     f"Section: {drop_sec_id} is dropped successfully",
                     category="success",
@@ -365,23 +394,22 @@ def add_section_page():
 
     form1 = AddSectionForm()
     if form1.validate_on_submit():
+        print("Form Type Value:", form1.type.data)  # Debugging line
+
         section_to_create = Section(
             course_id=form1.course_id.data,
             place=form1.place.data,
             semester=form1.semester.data,
-            type=form1.type.data,
-            day=form1.day.data,
-            # Use start_time and end_time instead of a single time field
-            time=f"{form1.start_time.data.strftime('%H:%M')} - {form1.end_time.data.strftime('%H:%M')}",
+            type=SectionType[form1.type.data],
+            day=WeekDay[form1.day.data],
+            start_time=form1.start_time.data,
+            end_time=form1.end_time.data,
             group=form1.group.data,
             capacity=form1.capacity.data,
         )
         db.session.add(section_to_create)
         db.session.commit()
-        flash(
-            f"Section {section_to_create.id} added successfully!",
-            category="success",
-        )
+        flash(f"Section {section_to_create.id} added successfully!", category="success")
 
     if form1.errors != {}:
         for err_msg in form1.errors.values():

@@ -3,6 +3,7 @@ from flask_login import UserMixin
 from sqlalchemy.orm import validates
 from sqlalchemy import func
 from flask import flash
+from enum import Enum
 
 
 @login_manager.user_loader
@@ -72,9 +73,10 @@ class User(db.Model, UserMixin):
 
 class Grade(db.Model):
     student_id = db.Column(db.Integer(), db.ForeignKey("user.id"), primary_key=True)
-    passed_credit_hours = db.Column(db.Float(), nullable=False, default=0)
+    passed_credit_hours = db.Column(db.Integer(), nullable=False, default=0)
     gpa = db.Column(db.Float(), nullable=False, default=0.0)
     user = db.relationship("User", back_populates="grade")
+    failed_credit_hours = db.Column(db.Integer(), default=0)
 
     @validates("student_id")
     def validate_student_role(self, key, student_id):
@@ -111,13 +113,30 @@ class Course_prerequisite(db.Model):
     )
 
 
+class WeekDay(Enum):
+    SATURDAY = "SATURDAY"
+    SUNDAY = "SUNDAY"
+    MONDAY = "MONDAY"
+    TUESDAY = "TUESDAY"
+    WEDNESDAY = "WEDNESDAY"
+    THURSDAY = "THURSDAY"
+
+
+class SectionType(Enum):
+    THEORETICAL = "THEORETICAL"
+    TUTORIAL = "TUTORIAL"
+    LAB = "LAB"
+
+
 class Section(db.Model):
     id = db.Column(db.Integer(), primary_key=True)
     course_id = db.Column(db.String(length=10), db.ForeignKey("courses.id"))
     place = db.Column(db.Integer(), db.ForeignKey("place.place_num"), nullable=False)
     semester = db.Column(db.String(length=20), nullable=False)
-    type = db.Column(db.String(length=10), nullable=False, default="Theoretical")
-    day = db.Column(db.Integer(), nullable=False)
+    type = db.Column(
+        db.Enum(SectionType), nullable=False, default=SectionType.THEORETICAL
+    )
+    day = db.Column(db.Enum(WeekDay), nullable=False)  # Use Enum for better clarity
     start_time = db.Column(db.Time(), nullable=False)  # Separate start time
     end_time = db.Column(db.Time(), nullable=False)  # Separate end time
     group = db.Column(db.Integer(), nullable=False)
@@ -132,6 +151,22 @@ class Section(db.Model):
         "Course_registered", backref="section", lazy=True
     )
     instructor_id = db.Column(db.Integer(), db.ForeignKey("user.id"))
+
+    def is_full(self):
+        """Check if the section has reached or exceeded its capacity."""
+        enrolled_count = Course_registered.query.filter_by(section_id=self.id).count()
+        return enrolled_count >= self.capacity
+
+    @staticmethod
+    def check_time_conflict(existing_sections, new_section):
+        for enrolled_sec in existing_sections:
+            if (
+                enrolled_sec.start_time < new_section.end_time
+                and new_section.start_time < enrolled_sec.end_time
+                and enrolled_sec.day == new_section.day
+            ):
+                return True  # Conflict detected
+        return False  # No conflict
 
 
 class Course_registered(db.Model):
@@ -176,10 +211,6 @@ class Course_registered(db.Model):
             # Update the GPA (weighted by course credit hours)
             self.update_gpa(grade_record, grade, course_credit_hours)
 
-            # Update passed credit hours if grade >= 60
-            if grade >= 60:
-                grade_record.passed_credit_hours += course_credit_hours
-
         # Delete all registrations matching course_id and group
         registrations_to_delete = (
             Course_registered.query.join(Section)
@@ -196,6 +227,33 @@ class Course_registered(db.Model):
 
         db.session.commit()
 
+    def update_gpa(self, grade_record, grade, course_credit_hours):
+        gpa_value = self.grade_to_gpa(grade)
+
+        # Calculate new total credits and GPA points
+        new_total_credits = (
+            grade_record.passed_credit_hours
+            + grade_record.failed_credit_hours
+            + course_credit_hours
+        )
+        total_gpa_points = grade_record.gpa * (
+            grade_record.passed_credit_hours + grade_record.failed_credit_hours
+        )
+        new_total_points = total_gpa_points + (gpa_value * course_credit_hours)
+
+        if grade >= 60:
+            grade_record.passed_credit_hours += course_credit_hours
+        else:
+            grade_record.failed_credit_hours += course_credit_hours
+
+        # Calculate new GPA
+        if new_total_credits > 0:
+            grade_record.gpa = min(new_total_points / new_total_credits, 5)
+        else:
+            grade_record.gpa = 0
+
+        db.session.commit()
+
     @staticmethod
     def grade_to_gpa(grade):
         """Convert a numeric grade to the corresponding GPA."""
@@ -208,27 +266,6 @@ class Course_registered(db.Model):
         elif 85 <= grade <= 100:
             return 3.5 + (grade - 85) * 0.1
         return 0  # GPA is 0 for grades below 60
-
-    def update_gpa(self, grade_record, grade, course_credit_hours):
-        # Convert the numeric grade to the corresponding GPA
-        gpa_value = self.grade_to_gpa(grade)
-
-        # Calculate the current total weighted GPA and total credits
-        total_grades = grade_record.gpa * grade_record.passed_credit_hours
-
-        # Update total grades with the new GPA value
-        total_grades += gpa_value * course_credit_hours
-
-        # Update total credits
-        total_credits = grade_record.passed_credit_hours + course_credit_hours
-
-        # Calculate new GPA
-        new_gpa = total_grades / total_credits
-
-        # Ensure GPA does not exceed the maximum value
-        grade_record.gpa = min(new_gpa, 5)
-
-        db.session.commit()
 
 
 class Course_grade(db.Model):
