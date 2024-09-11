@@ -2,4 +2,4 @@
 .vscode
 notes.txt
 .venv
-__pycache__/
+App/__pycache__/
