@@ -270,7 +270,7 @@ def login_page():
 def forgot_password():
     form = ForgotPasswordForm()
     if form.validate_on_submit():
-        email = form.email_address.data
+        email = form.email_address.data.lower()
         user = User.query.filter_by(email_address=email).first()
         if user:
             token = s.dumps(email, salt="password-reset-salt")
