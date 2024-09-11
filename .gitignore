@@ -3,3 +3,5 @@
 notes.txt
 .venv
 App/__pycache__/
+__pycache__/
+
